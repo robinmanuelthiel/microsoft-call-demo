@@ -1,0 +1,57 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+      - release/**
+  pull_request:
+    branches: [ main ]
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      execute-all-jobs:
+        description: 'Executes all jobs regardless of their changes.'
+        required: true
+        default: 'false'
+
+env:
+  SKIP_WORKFLOW: ${{ github.event.label.name != '' && github.event.label.name != 'deploy' }}" # If this workflow gets executed by labeling a PR, the label must be 'deploy'
+
+jobs:
+  greet:
+    if: env.SKIP_WORKFLOW
+    runs-on: ubuntu-latest
+    steps:      
+      - run: echo Hello
+      
+  build:
+    runs-on: ubuntu-latest
+    steps:      
+      - run: echo ${{ env.SKIP_WORKFLOW }}
+      - run: echo ${{ !env.SKIP_WORKFLOW }}
+      - run: echo ${{ github.event.label }}
+      - run: echo "RUN? ${{ github.event.label.name == '' || github.event.label.name == 'deploy' }}"
+      - run: echo "RUN2? ${{ github.event.label.name == '' }}"
+      - run: echo "RUN3? ${{ github.event.label.name == null }}"
+      - uses: actions/checkout@v2
+      - run: echo "Execute ALL ${{ github.event.inputs.execute-all-jobs }}"
+      - name: Get Environment
+        id: get-environment
+        uses: wemogy/get-environment-action@1.2.2
+  
+      - run: echo ${{ steps.get-environment.outputs.branch-name }}
+      - uses: nrwl/last-successful-commit-action@v1
+        id: last_successful_commit
+        with:
+          branch: ${{ steps.get-environment.outputs.branch-name }}
+          workflow_id: 'blank.yml'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: echo "Last successful commit ${{ steps.last_successful_commit.outputs.commit_hash }}"
+      - uses: dorny/paths-filter@v2
+        id: path-filter
+        with:
+          list-files: 'shell'
+          base: ${{ steps.last_successful_commit.outputs.commit_hash }}
+          filters: |
+            folder-a: 'folders/a/**'
+            folder-b: 'folders/b/**'           
